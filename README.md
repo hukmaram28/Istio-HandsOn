@@ -1,78 +1,95 @@
 # Istio-HandsOn
 
-What is service mesh?
-= Service Mesh helps with traffic management in kubernetes( East-West traffic )
+## What is a Service Mesh?
 
-E-W traffic = service to service traffic
-N-S traffic = Traffic coming from outsite (Ingress and Egress)
+A service mesh helps with traffic management in Kubernetes, particularly East-West traffic.
 
-Why we need service mesh?
+- **E-W traffic:** Service to service traffic within the cluster.
+- **N-S traffic:** Traffic coming from outside (Ingress and Egress).
 
-1. Istio adds mutual TLS for secure service to service communication.
-2. Canary deployment
-3. Istio comes with Kiali which is observability tool.
+## Why do we need a service mesh?
 
-How does service mesh works?
-= It adds a sidecar container to the pod (Envoy proxy) and traffic flows through this side car container. It intercept the traffic. These side car containers enhances or extend the functionality of the main container such as handling network, logging, monitoring tasks.
+1. Istio adds mutual TLS for secure service-to-service communication.
+2. Canary deployment.
+3. Istio comes with Kiali, an observability tool.
+and many more features...
 
-How does istio adds sidecar container?
-= Istio uses a dynamic admission controller which is called by the API server using webhook and admission controller intercept and modify and validate the api calls before it is stored in etcd.
+## How does a service mesh work?
 
-There are 30+ admission controllers available by default in k8s.
-To check the default admission controllers -
+It adds a sidecar container to the pod (Envoy proxy), and traffic flows through this sidecar container. It intercepts the traffic. These sidecar containers enhance or extend the functionality of the main container by handling tasks such as networking, logging, and monitoring.
+
+## How does Istio add sidecar containers?
+
+Istio uses a dynamic admission controller, which is called by the API server using a webhook. The admission controller intercepts, modifies, and validates API calls before they are stored in etcd.
+
+There are 30+ admission controllers available by default in Kubernetes. To check the default admission controllers:
 
 `minikube ssh` and `sudo cat /etc/kubernetes/manifests/kube-apiserver.yaml`
+
 ![Admission-controller](./images/Admission-controller.png)
 
-We can see a following admission controllers are present by default - NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,DefaultTolerationSeconds,NodeRestriction,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota
+We can see that the following admission controllers are present by default: NamespaceLifecycle, LimitRanger, ServiceAccount, DefaultStorageClass, DefaultTolerationSeconds, NodeRestriction, MutatingAdmissionWebhook, ValidatingAdmissionWebhook, ResourceQuota.
 
-These admission controllers does two thing - Mutation and Validation
+These admission controllers perform two main functions: Mutation and Validation.
 
-To verify mutation, we can create a persistent volume claim and we will see that a storage class is attached to the PVC automatically by this controller before the resource manifest is stored in etcd.
+### To verify mutation
 
-Create a pvc using following command
+We can create a persistent volume claim, and we will see that a storage class is attached to the PVC automatically by this controller before the resource manifest is stored in etcd.
+
+Create a PVC using the following command:
+
 `kubectl apply -f default-admission-controllers/mutation/01-mutation-storage-class.yaml`
 
-Now to check the mutation run following command
-`kubecl edit pvc myclaim`
+Now to check the mutation run the following command:
 
-Notice that a storageClassName is added-
+`kubectl edit pvc myclaim`
+
+Notice that a `storageClassName` is added:
+
 ![default-storage-class](./images/admission-controller-mutation.png)
 
-To verify Validation, We will create a namespace with RAM of 2GB and then we will try to allocate a 10GB of RAM to a pod in this namespace and the admission controller will validate and fail the pod creation.
+### To verify validation
 
-Run below commands -
+We will create a namespace with RAM of 2GB, and then we will try to allocate 10GB of RAM to a pod in this namespace. The admission controller will validate and fail the pod creation.
+
+Run the below commands:
 
 `kubectl apply -f default-admission-controllers/validation/01-resourcequota.yaml`
-``
 
 ![admission-controller-validation](./images/admission-controller-validation.png)
 
-Istio is a external controller so how does API server connects to the Istio controller webhook?
-
+Istio is an external controller, so how does the API server connect to the Istio controller webhook?
 
 ## Istio installation
 
-Download `curl -L https://istio.io/downloadIstio | sh -`
-Export path `export PATH=$PWD/bin:$PATH`
+Download Istio using:
 
-The bin folder contains istioctl command line tool.
+`curl -L https://istio.io/downloadIstio | sh -`
 
-Now to install istio demo profile, run following command
+Export path:
+
+`export PATH=$PWD/bin:$PATH`
+
+The bin folder contains the `istioctl` command line tool.
+
+Now to install the Istio demo profile, run the following command:
 
 `istioctl install --set profile=demo -y`
 
+Add a namespace label to instruct Istio to automatically inject Envoy sidecar proxies:
 
-Add a namespace label to instruct Istio to automatically inject Envoy sidecar proxies
 `kubectl label namespace default istio-injection=enabled`
 
-deploy the sample application
+Deploy the sample application:
+
 `kubectl apply -f samples/bookinfo/platform/kube/bookinfo.yaml`
 
-Expose the application using Istio gateway
+Expose the application using Istio gateway:
+
 `kubectl apply -f samples/bookinfo/networking/bookinfo-gateway.yaml`
 
-and start minikube tunnel
+And start Minikube tunnel:
+
 `minikube tunnel`
 
 Now we can access the product page at `http://127.0.0.1/productpage`
@@ -80,19 +97,24 @@ Now we can access the product page at `http://127.0.0.1/productpage`
 ![product-page](./images/product-page.png)
 
 ## mTLS
-By default Istio runs in permissive mode in which the services are accessible with and without TLS mode.
 
-to verify, login into minikube master node and curl the productpage microservice.
+By default, Istio runs in permissive mode in which the services are accessible with and without TLS mode.
+
+To verify, log in to the Minikube master node and curl the product page microservice.
 
 `kubectl get svc`
+
 ![svc](./images/svc.png)
 
 `minikube ssh`
+
 `curl 10.100.49.20:9080/api/v1/products`
 
 ![curl-productpage](./images/curl-productpage.png)
 
-Now, To enable strict mode we need to run `kubectl apply -f mTLS/tls-mode.yaml`
+Now, to enable strict mode we need to run:
+
+`kubectl apply -f mTLS/tls-mode.yaml`
 
 Now the services are not accessible without TLS.
 
@@ -100,36 +122,41 @@ Now the services are not accessible without TLS.
 
 ## Canary Deployment
 
-to route all requests to v1 version 
+To route all requests to the v1 version:
+
 `kubectl apply -f istio-1.22.3/samples/bookinfo/networking/virtual-service-all-v1.yaml`
 
-run to verify `kubectl get virtualservices -o yaml`
+Run to verify:
 
-Now all the requests will go to V1.
+`kubectl get virtualservices -o yaml`
 
-Now let's apply `kubectl apply -f traffic-management/traffic-shifting/02-traffic-shifting.yaml`
+Now all the requests will go to v1.
 
-Now 50% traffic goes to V1 and 50% to v2 of reviews microservice.
+Now let's apply:
+
+`kubectl apply -f traffic-management/traffic-shifting/02-traffic-shifting.yaml`
+
+Now 50% of the traffic goes to v1 and 50% to v2 of the reviews microservice.
 
 ## Dynamic admission controller
 
-The default admission controller Mutating admission webhook controller calls the istiod admission controller after API server authorizes the API request. To do this we need to create a custom resource which define these rules. The Istiod admission webhook controller then mutate or validate the request.
-The request then sent back to API server and then to etcd.
+The default admission controller, Mutating Admission Webhook Controller, calls the Istiod Admission Controller after the API server authorizes the API request. To do this we need to create a custom resource which defines these rules. The Istiod Admission Webhook Controller then mutates or validates the request. The request is then sent back to the API server and then to etcd.
 
 ![dynamic-admission-controller](./images/dynamic-admission-controller.png)
 
-## Kiali 
+## Kiali
 
-Istio comes with Kiali obserability tool.
+Istio comes with the Kiali observability tool.
 
-Install using following command
+Install using the following command:
+
 `kubectl apply -f samples/addons`
+
 `kubectl rollout status deployment/kiali -n istio-system`
+
 `istioctl dashboard kiali`
 
 ![kiali-dashboard](./images/kiali-dashboard.png)
-
-
 
 # Definitions
 
@@ -180,5 +207,3 @@ Observability in a service mesh refers to the ability to monitor, trace, and ana
 ### Service Mesh vs Ingress
 
 A service mesh operates at the layer of service-to-service communication within a cluster, providing features like traffic management, security, and observability. In contrast, an ingress controller manages external access to services within the cluster, typically handling tasks like load balancing, SSL termination, and routing based on HTTP/HTTPS requests.
-
-
